@@ -5,38 +5,43 @@ import twilio from "twilio";
 const app = express();
 app.use(bodyParser.json());
 
-// 🔑 Your Twilio credentials
-const accountSid = "ACxxxxxxxxxxxx"; 
-const authToken = "your_auth_token";
+// Twilio credentials from your Twilio Console
+const accountSid = "ACXXXXXXXXXXXXXXXXXXXXXXXX"; // <-- replace
+const authToken = "your_auth_token";              // <-- replace
 const client = twilio(accountSid, authToken);
 
-// Emergency endpoint (called by the HTML page)
+// Replace with YOUR WhatsApp number
+const YOUR_WHATSAPP_NUMBER = "whatsapp:+918171388267";  // 👈 your number
+
+// Replace with your Twilio Sandbox WhatsApp number
+const TWILIO_WHATSAPP = "whatsapp:+14155238886";
+
 app.post("/api/emergency", async (req, res) => {
   try {
     const { latitude, longitude, mode } = req.body;
 
-    const locationUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
-    const message = `🚨 Emergency Alert (${mode})\nLocation: ${locationUrl}`;
+    const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+    const message = `🚨 Emergency Alert (${mode})\nLocation: ${mapsUrl}`;
 
-    // WhatsApp send
+    // Send WhatsApp
     await client.messages.create({
-      from: "whatsapp:+14155238886",  // Twilio WhatsApp sandbox
-      to: "whatsapp:+918171388267",   // Your target number
+      from: TWILIO_WHATSAPP,
+      to: YOUR_WHATSAPP_NUMBER,
       body: message,
     });
 
-    // SMS send
-    await client.messages.create({
-      from: "+1234567890", // Your Twilio number
-      to: "+918171388267", // Your target number
-      body: message,
-    });
+    // Optional: send SMS too (if you have a Twilio phone number)
+    // await client.messages.create({
+    //   from: "+1234567890", // your Twilio phone number
+    //   to: "+918171388267", // your phone number
+    //   body: message,
+    // });
 
-    res.send({ ok: true });
+    res.send({ status: "ok", sent: true });
   } catch (err) {
     console.error(err);
     res.status(500).send({ error: err.message });
   }
 });
 
-app.listen(3000, () => console.log("🚀 Server running on http://localhost:3000"));
+app.listen(3000, () => console.log("🚀 Server running on port 3000"));
