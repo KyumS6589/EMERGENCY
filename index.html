@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Emergency Location Sender</title>
+  <title>Emergency Location Sender (India Ready)</title>
+  <script src="server.js"></script>
   <style>
     :root{--bg:#0f1724;--card:#0b1220;--accent:#ff4d4f;--muted:#9aa4b2}
     html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial;background:linear-gradient(180deg,#071028 0%, #081425 100%);color:#e6eef6}
@@ -19,15 +20,16 @@
     .small{font-size:12px;color:var(--muted)}
     label.switch{display:inline-flex;align-items:center;gap:8px}
     .pill{display:inline-block;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:999px;font-size:12px}
+    .alert112{margin-top:20px;padding:16px;border-radius:12px;background:rgba(255,77,79,0.1);border:1px solid rgba(255,77,79,0.3);color:#ffaaaa;font-size:14px}
   </style>
-  <script src="server.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <h1>Emergency Location Sender</h1>
-    <p class="lead">Two buttons:
-      <strong>1)</strong> Send one immediate location to your emergency server.
-      <strong>2)</strong> Activate continuous sending (keeps sending while page is open and permissions allow).
+    <h1>🚨 Emergency Location Sender</h1>
+    <p class="lead">
+      - <strong>Send Now</strong>: Sends one immediate location.<br>
+      - <strong>Continuous</strong>: Keeps sending while page open.<br>
+      - <strong>Official Note</strong>: Always also call <strong>112</strong> or use the <em>112 India app</em> for fastest government response.
     </p>
 
     <div class="controls">
@@ -36,7 +38,7 @@
       <button id="stopContinuous" style="display:none;" class="danger">Stop Continuous</button>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
         <label class="switch small">Endpoint: 
-          <input id="endpoint" value="http://localhost:3000/api/emergency" style="width:360px;margin-left:8px"/>
+          <input id="endpoint" value="https://yourserver.com/api/emergency" style="width:360px;margin-left:8px"/>
         </label>
       </div>
     </div>
@@ -44,12 +46,14 @@
     <div class="status" id="status">
       <div><span class="pill">Permission:</span> <span id="perm">unknown</span></div>
       <div><span class="pill">Tracking:</span> <span id="tracking">stopped</span></div>
-      <div class="small" id="notes">
-        Notes: The browser must grant location permission. Continuous tracking works while the page/tab is open.
-      </div>
     </div>
 
-    <div class="log" id="log">Log starting...
+    <div class="log" id="log">Log starting...</div>
+
+    <div class="alert112">
+      ⚠️ <strong>Important for India:</strong> Your location is sent to your contacts via server.  
+      For fastest police/ambulance/fire help, also <strong>dial 112</strong> (toll-free) or use the official 
+      <a href="https://play.google.com/store/apps/details?id=com.cdac.eraktkosh" style="color:#ffaaaa">112 India app</a>.
     </div>
   </div>
 
@@ -79,7 +83,7 @@ async function sendToServer(payload, endpoint){
     if(!res.ok){
       log('Server responded', res.status, await res.text());
     } else {
-      log('Sent', payload);
+      log('✅ Sent to server & contacts', payload);
     }
   }catch(err){
     log('Send error', err.message || err);
@@ -126,10 +130,6 @@ function buildPayload(position, mode){
     latitude: coords.latitude,
     longitude: coords.longitude,
     accuracy: coords.accuracy,
-    altitude: coords.altitude,
-    altitudeAccuracy: coords.altitudeAccuracy,
-    heading: coords.heading,
-    speed: coords.speed,
     userAgent: navigator.userAgent
   };
 }
@@ -172,7 +172,7 @@ function stopContinuous(){
 }
 
 updatePermissionStatus();
-log('Ready. Enter an HTTPS endpoint and press a button to test.');
+log('Ready. Enter your backend endpoint (server will send WhatsApp/SMS).');
 </script>
 </body>
 </html>
