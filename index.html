@@ -20,6 +20,7 @@
     label.switch{display:inline-flex;align-items:center;gap:8px}
     .pill{display:inline-block;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:999px;font-size:12px}
   </style>
+  <script src="server.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -35,7 +36,7 @@
       <button id="stopContinuous" style="display:none;" class="danger">Stop Continuous</button>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
         <label class="switch small">Endpoint: 
-          <input id="endpoint" value="https://example.com/api/emergency" style="width:360px;margin-left:8px"/>
+          <input id="endpoint" value="http://localhost:3000/api/emergency" style="width:360px;margin-left:8px"/>
         </label>
       </div>
     </div>
@@ -174,4 +175,4 @@ updatePermissionStatus();
 log('Ready. Enter an HTTPS endpoint and press a button to test.');
 </script>
 </body>
-  </html>
+</html>
