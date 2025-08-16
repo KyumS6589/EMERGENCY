@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Emergency Location Sender</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#ff4d4f;--muted:#9aa4b2}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial;background:linear-gradient(180deg,#071028 0%, #081425 100%);color:#e6eef6}
+    .wrap{max-width:920px;margin:48px auto;padding:28px;border-radius:14px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+    .controls{display:flex;gap:12px;flex-wrap:wrap}
+    button{background:var(--card);border:1px solid rgba(255,255,255,0.04);color:inherit;padding:12px 16px;border-radius:12px;font-size:15px;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,#ff6b6b,#ff4d4f);color:white;border:none}
+    button.danger{background:transparent;border:1px solid rgba(255,77,79,0.15);color:var(--accent)}
+    .status{margin-top:16px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.02);font-size:13px;line-height:1.4}
+    .log{margin-top:12px;max-height:220px;overflow:auto;padding:8px;border-radius:8px;background:#020613;color:#bcd3ef;font-family:monospace;font-size:13px}
+    .small{font-size:12px;color:var(--muted)}
+    label.switch{display:inline-flex;align-items:center;gap:8px}
+    .pill{display:inline-block;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:999px;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Emergency Location Sender</h1>
+    <p class="lead">Two buttons:
+      <strong>1)</strong> Send one immediate location to your emergency server.
+      <strong>2)</strong> Activate continuous sending (keeps sending while page is open and permissions allow).
+    </p>
+
+    <div class="controls">
+      <button id="oneShot" class="primary">Send Emergency Now</button>
+      <button id="toggleContinuous">Activate Continuous Tracking</button>
+      <button id="stopContinuous" style="display:none;" class="danger">Stop Continuous</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <label class="switch small">Endpoint: 
+          <input id="endpoint" value="https://example.com/api/emergency" style="width:360px;margin-left:8px"/>
+        </label>
+      </div>
+    </div>
+
+    <div class="status" id="status">
+      <div><span class="pill">Permission:</span> <span id="perm">unknown</span></div>
+      <div><span class="pill">Tracking:</span> <span id="tracking">stopped</span></div>
+      <div class="small" id="notes">
+        Notes: The browser must grant location permission. Continuous tracking works while the page/tab is open.
+      </div>
+    </div>
+
+    <div class="log" id="log">Log starting...
+    </div>
+  </div>
+
+<script>
+const DEFAULT_ENDPOINT = document.getElementById('endpoint').value.trim();
+let watchId = null;
+let lastPosition = null;
+let continuousActive = false;
+let sendIntervalHandle = null;
+const SEND_INTERVAL_MS = 15000;
+
+function log(...args){
+  const el = document.getElementById('log');
+  const ts = new Date().toISOString();
+  el.textContent = ts + ' - ' + args.map(a => (typeof a==='object'?JSON.stringify(a):String(a))).join(' ') + '\n' + el.textContent;
+}
+
+async function sendToServer(payload, endpoint){
+  try{
+    const url = endpoint || document.getElementById('endpoint').value.trim() || DEFAULT_ENDPOINT;
+    if(!url){ log('No endpoint configured.'); return; }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      log('Server responded', res.status, await res.text());
+    } else {
+      log('Sent', payload);
+    }
+  }catch(err){
+    log('Send error', err.message || err);
+  }
+}
+
+function updateStatus(){
+  document.getElementById('tracking').textContent = continuousActive ? 'active' : 'stopped';
+}
+
+function updatePermissionStatus(){
+  if(!('permissions' in navigator)){
+    document.getElementById('perm').textContent = 'unknown';
+    return;
+  }
+  navigator.permissions.query({name:'geolocation'}).then(s => {
+    document.getElementById('perm').textContent = s.state;
+    s.onchange = () => document.getElementById('perm').textContent = s.state;
+  }).catch(()=> document.getElementById('perm').textContent='error');
+}
+
+document.getElementById('oneShot').addEventListener('click', () => {
+  if(!('geolocation' in navigator)){
+    log('Geolocation not supported.');
+    return;
+  }
+  log('Requesting current position...');
+  navigator.geolocation.getCurrentPosition(pos => {
+    lastPosition = pos;
+    sendToServer(buildPayload(pos,'one-shot'));
+  }, err => {
+    log('Position error', err.code, err.message);
+  }, {enableHighAccuracy:true, timeout:20000, maximumAge:5000});
+});
+
+document.getElementById('toggleContinuous').addEventListener('click', startContinuous);
+document.getElementById('stopContinuous').addEventListener('click', stopContinuous);
+
+function buildPayload(position, mode){
+  const coords = position.coords;
+  return {
+    mode,
+    timestamp: position.timestamp,
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    accuracy: coords.accuracy,
+    altitude: coords.altitude,
+    altitudeAccuracy: coords.altitudeAccuracy,
+    heading: coords.heading,
+    speed: coords.speed,
+    userAgent: navigator.userAgent
+  };
+}
+
+function startContinuous(){
+  if(continuousActive) return;
+  if(!('geolocation' in navigator)){
+    log('Geolocation not available.');
+    return;
+  }
+  log('Activating continuous tracking...');
+  continuousActive = true;
+  document.getElementById('toggleContinuous').style.display='none';
+  document.getElementById('stopContinuous').style.display='inline-block';
+  updateStatus();
+  updatePermissionStatus();
+
+  watchId = navigator.geolocation.watchPosition(pos => {
+    lastPosition = pos;
+    sendToServer(buildPayload(pos,'continuous-update'));
+  }, err => {
+    log('Watch error', err.code, err.message);
+  }, {enableHighAccuracy:true, maximumAge:3000, timeout:20000});
+
+  if(sendIntervalHandle) clearInterval(sendIntervalHandle);
+  sendIntervalHandle = setInterval(()=>{
+    if(lastPosition){ sendToServer(buildPayload(lastPosition,'continuous-heartbeat')); }
+  }, SEND_INTERVAL_MS);
+}
+
+function stopContinuous(){
+  if(!continuousActive) return;
+  log('Stopping continuous tracking...');
+  continuousActive = false;
+  updateStatus();
+  if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if(sendIntervalHandle){ clearInterval(sendIntervalHandle); sendIntervalHandle = null; }
+  document.getElementById('toggleContinuous').style.display='inline-block';
+  document.getElementById('stopContinuous').style.display='none';
+}
+
+updatePermissionStatus();
+log('Ready. Enter an HTTPS endpoint and press a button to test.');
+</script>
+</body>
+  </html>
